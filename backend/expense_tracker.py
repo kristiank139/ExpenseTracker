@@ -1,14 +1,20 @@
-# 1) Categorize expenses?, could create categories and add specific sum to it
-
 import pandas as pd
 from dotenv import load_dotenv
 from openai import OpenAI
 import json
+import os, sys
 
-load_dotenv(".env")
+script_dir = os.path.dirname(os.path.abspath(__file__))
+dotenv_path = os.path.join(script_dir, ".env")
+
+if len(sys.argv) == 1:
+    csv_path = os.path.join(script_dir, "statement.csv")
+else:
+    csv_path = sys.argv[1]
+
+load_dotenv(dotenv_path)
 
 def categorize_payments(payment_data):
-    print("Creating response")
     openai_response = client.responses.create(
         model = "gpt-4.1",
         input = [
@@ -22,11 +28,23 @@ def categorize_payments(payment_data):
             }
         ]
     )
-    print("responded")
 
     return json.loads(openai_response.output_text)
 
-df = pd.read_csv("statement-2.csv", delimiter=";")
+def reorganize_payment_data(explanations_amounts, payment_categories, categorized_payments, row_amount):
+    reorganized_payment_data = {
+        payment_category: {"amount": 0, "payments": []} for payment_category in payment_categories
+    }
+
+    # Add spending amounts and explanations to data
+    for i in range(row_amount):
+        reorganized_payment_data[categorized_payments[str(i)]["category"]]["amount"] += float(categorized_payments[str(i)]["amount"])
+        reorganized_payment_data[categorized_payments[str(i)]["category"]]["payments"].append({explanations_amounts[i]["explanation"]: categorized_payments[str(i)]["amount"]})
+    
+    return reorganized_payment_data
+
+payment_categories = ["groceries", "transport", "eating out", "items", "other"]
+df = pd.read_csv(csv_path, delimiter=";")
 
 client = OpenAI()
 
@@ -36,32 +54,14 @@ row_amount = 20
 
 df = df[~df["Selgitus"].isin(unnecessary_row_tags)]
 df = df[df["Deebet/Kreedit"] != "K"]
+
 payment_explanations = df["Selgitus"].head(row_amount).tolist()
 payment_amounts = df["Summa"].head(row_amount).tolist()
 
-explanations_amounts_json = [{"explanation": e, "amount": a} for e, a in zip(payment_explanations, payment_amounts)]
+explanations_amounts = [{"explanation": e.replace("'", ""), "amount": a} for e, a in zip(payment_explanations, payment_amounts)]
 
-print(explanations_amounts_json)
+categorized_payments = categorize_payments(explanations_amounts)
 
-spendings = {
-    "groceries": 0,
-    "transport": 0,
-    "eating out": 0,
-    "items": 0,
-    "other": 0
-    }
+print(json.dumps(reorganize_payment_data(explanations_amounts, payment_categories, categorized_payments, row_amount)))
 
-print("--------------")
-print(json.dumps(explanations_amounts_json))
-
-categorized_payments = categorize_payments(explanations_amounts_json)
-
-#categorized_payments = {'groceries': {'amount': 64.56, 'indices': [4, 6, 12, 15, 16, 17, 19]}, 'eating out': {'amount': 42.39, 'indices': [3, 14, 15, 18]}, 'items': {'amount': 54.18, 'indices': [5, 10, 11]}, 'transport': {'amount': 44.16, 'indices': [2, 7, 8, 9]}, 'subscriptions': {'amount': 0.0, 'indices': []}, 'other': {'amount': 18.69, 'indices': [0, 1, 13]}}
-
-print(categorized_payments)
-
-for i in range(row_amount):
-    spendings[categorized_payments[str(i)]['category']] += float(df.iloc[i]["Summa"].replace(",", "."))
-
-print(spendings)
 
