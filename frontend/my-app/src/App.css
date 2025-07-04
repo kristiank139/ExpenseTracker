@@ -87,10 +87,3 @@
   background-color: #ccc;
   border-radius: 3px;
 }
-
-.droppable-box {
-  border: 2px dashed gray;
-  padding: 10px;
-  margin: 10px 0;
-  min-height: 100px;
-}
