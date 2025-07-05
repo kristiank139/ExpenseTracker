@@ -1,13 +1,15 @@
 import './App.css';
 import { useState } from 'react';
-import { DndContext } from '@dnd-kit/core';
+import { DndContext, DragOverlay } from '@dnd-kit/core';
 
 import { Draggable } from './Draggable';
 import { Droppable } from './Droppable';
+import { DragPreview } from './DragPreview';
 
 
 function App() {
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [activeId, setActiveId] = useState(null);
+  const [activeNodeStyles, setActiveNodeStyles] = useState(null);
   // This is where I can add/remove categories
   const [categoryElements, setCategoryElements] = useState({
     "groceries": {"amount": 0, "payments": []},
@@ -24,7 +26,6 @@ function App() {
     const jsonData = await window.electronAPI.getJsonData(filePath);
 
     setCategoryElements(jsonData);
-    setSelectedFile(filePath);
   };
 
   function safeSubtract(a, b, tolerance = 1e-10) { // To avoid getting -0 as a result
@@ -40,6 +41,42 @@ function App() {
       index: Number(id.slice(index + 1)),
     };
   }
+
+  function handleDragStart(event) {
+    const { active } = event;
+    setActiveId(active.id);
+
+    const node = document.querySelector(`[data-id='${active.id}']`);
+    console.log(node)
+    if (node) {
+      const computedStyles = window.getComputedStyle(node);
+
+      const styleProps = [
+        'width',
+        'height',
+        'backgroundColor',
+        'color',
+        'fontSize',
+        'fontWeight',
+        'border',
+        'borderRadius',
+        'boxShadow',
+        'padding',
+        'margin',
+        'display',
+        'alignItems',
+        'justifyContent',
+        // add more as needed
+      ];
+
+      const inlineStyles = {};
+      styleProps.forEach(prop => {
+        inlineStyles[prop] = computedStyles.getPropertyValue(prop);
+      });
+      setActiveNodeStyles(inlineStyles);
+    }
+  }
+
   function handleDragEnd(event) {
     const { active, over} = event;
 
@@ -83,14 +120,24 @@ function App() {
         }
       }
     })
+    setActiveId(null);
   }
+
+  function getPaymentContentById(id) {
+    const { category, index } = parseId(id);
+    const [[ payment, amount ]] = Object.entries(categoryElements[category]['payments'][index])
+    return `${payment} - ${amount}`
+  }
+
 
   return (
       <div className="App">
         <h1>Expenses:</h1>
           <div className='lists-container'>
-            <DndContext onDragEnd={handleDragEnd}>
-
+            <DndContext
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+            >
             {Object.entries(categoryElements).map(([category, data]) => (
               <Droppable id={category} key={category}>
                 <div className="droppable-box">
@@ -99,18 +146,27 @@ function App() {
                       {data.payments.map((payment, index) => {
                         const [[description, amount]] = Object.entries(payment);
                         return (
-                        <Draggable 
-                        id={`${category}-${index}`}
-                        key={`${category}-${index}`}
-                        >
-                          {description} - {amount} €
-                        </Draggable>
-                      );
-                    })}
+                          <div className="payment-element">
+                            <Draggable 
+                              id={`${category}-${index}`}
+                              key={`${category}-${index}`}
+                            > 
+                              {description} - {amount} €
+                            </Draggable>
+                          </div>
+                        );
+                      })}
                     </ul>
                 </div>
               </Droppable>
             ))}
+
+            <DragOverlay>
+              {activeId ? (<DragPreview styles={{ ...activeNodeStyles }}>
+                {getPaymentContentById(activeId)}
+              </DragPreview>
+            ) : null}
+            </DragOverlay>
             </DndContext>
           </div>
         <h1>Select File</h1>
@@ -119,6 +175,5 @@ function App() {
 
  );
 }
-
 
 export default App;
