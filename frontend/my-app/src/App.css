@@ -1,40 +1,19 @@
+.file-selection {
+  text-align: center;
+  margin-top: 4.5rem;
+}
+
 .App {
   text-align: center;
+  font-family: 'Inter', sans-serif;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
-}
-
-.App-link {
-  color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+.title {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  color: #333;
 }
 
 .lists-container {
@@ -45,9 +24,9 @@
   justify-content: flex-start; /* align left */
 }
 
-.payments-list {
+.list-container {
   background: #f9f9f9;
-  border: 1px solid #ddd;
+  border: 1px solid #E0E0E0;
   border-radius: 8px;
   padding: 16px 20px;
   margin-bottom: 20px;
@@ -55,38 +34,40 @@
   max-width: 300px;
   min-height: 100px;
   max-height: 400px; 
-  overflow-y: auto;  
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  overflow-y: auto; 
+  color: #333333; 
 }
 
-.list {
-  font-weight: 600;
-  font-size: 1.1rem;
-  margin-bottom: 10px;
-  color: #333;
+.list-title {
+  margin-bottom: 16px;
+  color: #333333;
+  font-size: 1.2rem;
 }
 
-.payments-list ul {
-  list-style-type: disc;
-  padding-left: 20px;
-  margin: 0;
-}
-
-.payments-list li {
+.list-payments {
   font-size: 0.85rem;
-  color: #365;
-  margin-bottom: 6px;
-  line-height: 1.3;
 }
 
-/*.payment-element {
-  background-color: white;
-}*/
+ul, li {
+  margin: 0;
+  padding: 0;
+  list-style-type: none;
+}
+
+li.draggable-item {
+  background-color: #f9f9f9;
+  border: 1px solid #2A9D8F;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  cursor: grab;
+  user-select: none;
+}
 
 .payments-list ul::-webkit-scrollbar {
   width: 6px;
 }
+
 .payments-list ul::-webkit-scrollbar-thumb {
   background-color: #ccc;
   border-radius: 3px;

@@ -1,15 +1,18 @@
 import './App.css';
 import { useState } from 'react';
-import { DndContext, DragOverlay } from '@dnd-kit/core';
+import { DndContext, DragOverlay, pointerWithin } from '@dnd-kit/core';
+import BeatLoader from "react-spinners/BeatLoader";
 
-import { Draggable } from './Draggable';
-import { Droppable } from './Droppable';
-import { DragPreview } from './DragPreview';
+import { Draggable } from './components/Draggable';
+import { Droppable } from './components/Droppable';
+import { DragPreview } from './components/DragPreview';
 
 
 function App() {
   const [activeId, setActiveId] = useState(null);
   const [activeNodeStyles, setActiveNodeStyles] = useState(null);
+  const [file, setFile] = useState(null);
+  const [loading, setLoading] = useState(null);
   // This is where I can add/remove categories
   const [categoryElements, setCategoryElements] = useState({
     "groceries": {"amount": 0, "payments": []},
@@ -19,14 +22,26 @@ function App() {
     "other": {"amount": 0, "payments": []}
   })
 
+  function LoadingSpinner() {
+    return <BeatLoader size={40} color={"#123abc"} loading={true} />;
+  }
+
   const handleOpenFile = async () => {
     const filePath = await window.electronAPI.openFile();
     if (!filePath) return;
+    setLoading(true)
 
     const jsonData = await window.electronAPI.getJsonData(filePath);
+    console.log(jsonData)
 
     setCategoryElements(jsonData);
+    setFile(filePath);
+    setLoading(null)
   };
+
+  function getExpensesTotal(jsonData) {
+    return Object.values(jsonData).reduce((sum, category) => sum + category.amount, 0);
+  }
 
   function safeSubtract(a, b, tolerance = 1e-10) { // To avoid getting -0 as a result
     const result = a - b;
@@ -47,7 +62,7 @@ function App() {
     setActiveId(active.id);
 
     const node = document.querySelector(`[data-id='${active.id}']`);
-    console.log(node)
+
     if (node) {
       const computedStyles = window.getComputedStyle(node);
 
@@ -79,6 +94,7 @@ function App() {
 
   function handleDragEnd(event) {
     const { active, over} = event;
+    console.log(over)
 
     if (!over) {
       return;
@@ -90,6 +106,7 @@ function App() {
     const toCategory = over.id;
 
     if (from.category === toCategory) return; // Could add reordering here
+
 
     setCategoryElements((prev) => {
       const fromCategory = prev[from.category];
@@ -126,50 +143,58 @@ function App() {
   function getPaymentContentById(id) {
     const { category, index } = parseId(id);
     const [[ payment, amount ]] = Object.entries(categoryElements[category]['payments'][index])
-    return `${payment} - ${amount}`
+    return `${payment} - ${amount} €`
   }
 
+  if (!file) {
+    return (
+      <div className="file-selection">
+        <h1>Select CSV File To Get Started</h1>
+        <button onClick={handleOpenFile}>Choose File</button>
+        {loading ? LoadingSpinner : null}
+      </div>
+    )
+  }
 
   return (
       <div className="App">
-        <h1>Expenses:</h1>
+        <h1 className="title">Total expenses: {getExpensesTotal(categoryElements)}</h1>
           <div className='lists-container'>
             <DndContext
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
+              collisionDetection={pointerWithin}
             >
-            {Object.entries(categoryElements).map(([category, data]) => (
-              <Droppable id={category} key={category}>
-                <div className="droppable-box">
-                  <div className='list'>{category} - {data.amount.toFixed(2) + "€"}</div>
-                    <ul>
-                      {data.payments.map((payment, index) => {
-                        const [[description, amount]] = Object.entries(payment);
-                        return (
-                          <div className="payment-element">
-                            <Draggable 
-                              id={`${category}-${index}`}
-                              key={`${category}-${index}`}
-                            > 
-                              {description} - {amount} €
-                            </Draggable>
-                          </div>
-                        );
-                      })}
-                    </ul>
-                </div>
-              </Droppable>
-            ))}
-
-            <DragOverlay>
-              {activeId ? (<DragPreview styles={{ ...activeNodeStyles }}>
-                {getPaymentContentById(activeId)}
-              </DragPreview>
-            ) : null}
-            </DragOverlay>
+              {Object.entries(categoryElements).map(([category, data]) => (
+                <Droppable id={category} key={category}>
+                  <div>
+                    <div className='list-title'>{category} - {data.amount.toFixed(2) + "€"}</div>
+                      <ul className='list-payments'>
+                        {data.payments.map((payment, index) => {
+                          const [[description, amount]] = Object.entries(payment);
+                          return (
+                              <Draggable 
+                                id={`${category}-${index}`}
+                                key={`${category}-${index}`}
+                              > 
+                                {description} - {amount} €
+                              </Draggable>
+                          );
+                        })}
+                      </ul>
+                  </div>
+                </Droppable>
+              ))}
+  
+              <DragOverlay dropAnimation={null}>
+                {activeId ? (<DragPreview styles={{ ...activeNodeStyles }}>
+                  {getPaymentContentById(activeId)}
+                </DragPreview>
+              ) : null}
+              </DragOverlay>
             </DndContext>
           </div>
-        <h1>Select File</h1>
+        <h1>Select Different File</h1>
         <button onClick={handleOpenFile}>Choose File</button>
       </div>
 
