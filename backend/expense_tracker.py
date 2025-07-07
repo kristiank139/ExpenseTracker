@@ -37,16 +37,17 @@ def mask_card_number(text):
 
     return re.sub(pattern, r'•••• \2', text)
 
-def reorganize_payment_data(explanations_amounts, payment_categories, categorized_payments, row_amount):
-    reorganized_payment_data = {
-        payment_category: {"amount": 0, "payments": []} for payment_category in payment_categories
+def reorganize_payment_data(explanations_amounts, payment_categories, categorized_payments, row_amount, income_data):
+    reorganized_payment_data = {"payment_data":
+        {payment_category: {"amount": 0, "payments": []} for payment_category in payment_categories},
+        "income_data": income_data
     }
 
     # Add spending amounts and explanations to data
     for i in range(row_amount):
-        reorganized_payment_data[categorized_payments[str(i)]["category"]]["amount"] += float(categorized_payments[str(i)]["amount"])
+        reorganized_payment_data["payment_data"][categorized_payments[str(i)]["category"]]["amount"] += float(categorized_payments[str(i)]["amount"])
 
-        reorganized_payment_data[categorized_payments[str(i)]["category"]]["payments"].append({mask_card_number(explanations_amounts[i]["explanation"]): categorized_payments[str(i)]["amount"]})
+        reorganized_payment_data["payment_data"][categorized_payments[str(i)]["category"]]["payments"].append({mask_card_number(explanations_amounts[i]["explanation"]): categorized_payments[str(i)]["amount"]})
     
     return reorganized_payment_data
 
@@ -57,18 +58,22 @@ client = OpenAI()
 
 unnecessary_row_tags = ["Algsaldo", "Käive", "lõppsaldo"]
 
-row_amount = 30
+row_amount = 10
 
-df = df[~df["Selgitus"].isin(unnecessary_row_tags)]
-df = df[df["Deebet/Kreedit"] != "K"]
+expense_df = df[~df["Selgitus"].isin(unnecessary_row_tags)]
+income_df = expense_df[df["Deebet/Kreedit"] == "K"]
+expense_df = df[df["Deebet/Kreedit"] != "K"]
 
-payment_explanations = df["Selgitus"].head(row_amount).tolist()
-payment_amounts = df["Summa"].head(row_amount).tolist()
+payment_explanations = expense_df["Selgitus"].head(row_amount).tolist()
+payment_amounts = expense_df["Summa"].head(row_amount).tolist()
+income_amounts = income_df["Summa"].head(5).tolist() # Need to get head length!
 
 payment_data = [{"explanation": e.replace("'", ""), "amount": a} for e, a in zip(payment_explanations, payment_amounts)]
+income_data = {"income": [income_amount.replace(",", ".") for income_amount in income_amounts]}
+
 
 categorized_payments = categorize_payments(payment_data)
 
-print(json.dumps(reorganize_payment_data(payment_data, payment_categories, categorized_payments, row_amount)))
+print(json.dumps(reorganize_payment_data(payment_data, payment_categories, categorized_payments, row_amount, income_data)))
 
 

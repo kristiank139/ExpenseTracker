@@ -20,10 +20,13 @@ function App() {
     "eating out": {"amount": 0, "payments": []},
     "items": {"amount": 0, "payments": []},
     "other": {"amount": 0, "payments": []}
-  })
+  });
+  const [incomeData, setIncomeData] = useState(null);
 
   function LoadingSpinner() {
-    return <BeatLoader size={40} color={"#123abc"} loading={true} />;
+    return <div>
+              <BeatLoader size={25} color="#2A9D8F" />
+           </div>
   }
 
   const handleOpenFile = async () => {
@@ -34,13 +37,18 @@ function App() {
     const jsonData = await window.electronAPI.getJsonData(filePath);
     console.log(jsonData)
 
-    setCategoryElements(jsonData);
+    setCategoryElements(jsonData.payment_data);
+    setIncomeData(jsonData.income_data)
     setFile(filePath);
     setLoading(null)
   };
 
   function getExpensesTotal(jsonData) {
-    return Object.values(jsonData).reduce((sum, category) => sum + category.amount, 0);
+    return Object.values(jsonData).reduce((sum, category) => sum + category.amount, 0).toFixed(2);
+  }
+
+  function getIncomeTotal(incomeData) {
+    return incomeData.map(Number).reduce((sum, val) => sum + val, 0)
   }
 
   function safeSubtract(a, b, tolerance = 1e-10) { // To avoid getting -0 as a result
@@ -149,16 +157,16 @@ function App() {
   if (!file) {
     return (
       <div className="file-selection">
+        {loading ? <LoadingSpinner /> : <>
         <h1>Select CSV File To Get Started</h1>
-        <button onClick={handleOpenFile}>Choose File</button>
-        {loading ? LoadingSpinner : null}
+        <button onClick={handleOpenFile}>Choose File</button></>}
       </div>
     )
   }
 
   return (
       <div className="App">
-        <h1 className="title">Total expenses: {getExpensesTotal(categoryElements)}</h1>
+        <h1 className="title">Total expenses: {getExpensesTotal(categoryElements)}€, total income: {getIncomeTotal(incomeData.income)}€</h1>
           <div className='lists-container'>
             <DndContext
               onDragStart={handleDragStart}
