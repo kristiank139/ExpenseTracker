@@ -2,6 +2,7 @@ import './App.css';
 import { useState } from 'react';
 import { DndContext, DragOverlay, pointerWithin } from '@dnd-kit/core';
 import BeatLoader from "react-spinners/BeatLoader";
+import CustomPieChart from './components/PieChart';
 
 import { Draggable } from './components/Draggable';
 import { Droppable } from './components/Droppable';
@@ -204,6 +205,9 @@ function App() {
           </div>
         <h1>Select Different File</h1>
         <button onClick={handleOpenFile}>Choose File</button>
+        <div style={{width: '100%', height: 400}}>
+                <CustomPieChart categoryElements={categoryElements} />
+        </div>
       </div>
 
  );
