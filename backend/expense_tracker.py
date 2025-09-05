@@ -5,6 +5,9 @@ import json
 import os, sys
 import re
 
+# Once you incorporate your own AI model, remember that the data(text) needs to be the same as it was trained
+# .lower and .strip()
+
 script_dir = os.path.dirname(os.path.abspath(__file__))
 dotenv_path = os.path.join(script_dir, ".env")
 
@@ -21,7 +24,7 @@ def categorize_payments(payment_data):
         input = [
             {
                 "role": "developer",
-                "content": "You will be given a JSON string containing payment explanations as keys and the amount that was spent as their values. You should categorize these purchases based on the payment explanation into five different groups: 'Groceries', 'Eating out' (fast food chains, restaurants), 'Items' (like electronics, books, clothes), 'Transport', 'Other' (if you're unsure or other categories don't apply). Return a JSON string containing the n-th purchase as keys as such: '{0: {category: 'category', amount: 'amount'}, 1: etc...}'. Make sure all float numbers use dots not commas. Only output raw JSON.",
+                "content": "You will be given a JSON string containing payment explanations as keys and the amount that was spent as their values. You should categorize these purchases based on the payment explanation into five different groups: 'Groceries', 'Eating out' (fast food chains, restaurants), 'Items' (like electronics, books, clothes), 'Transport', 'Other' (if you're unsure or other categories don't apply). Return a JSON string containing the n-th purchase as keys as such: '{0: {category: 'category', amount: 'amount'}, 1: etc...}'. Only output raw JSON.",
             },
             {
                 "role": "user",
@@ -60,20 +63,20 @@ unnecessary_row_tags = ["Algsaldo", "Käive", "lõppsaldo"]
 
 row_amount = 10
 
-expense_df = df[~df["Selgitus"].isin(unnecessary_row_tags)]
-income_df = expense_df[df["Deebet/Kreedit"] == "K"]
+income_expense_df = df[~df["Selgitus"].isin(unnecessary_row_tags)]
+income_df = income_expense_df[income_expense_df["Deebet/Kreedit"] == "K"]
 expense_df = df[df["Deebet/Kreedit"] != "K"]
 
 payment_explanations = expense_df["Selgitus"].head(row_amount).tolist()
 payment_amounts = expense_df["Summa"].head(row_amount).tolist()
+income_explanations = income_df["Selgitus"].head(5).tolist()
 income_amounts = income_df["Summa"].head(5).tolist() # Need to get head length!
 
-payment_data = [{"explanation": e.replace("'", ""), "amount": a} for e, a in zip(payment_explanations, payment_amounts)]
-income_data = {"income": [income_amount.replace(",", ".") for income_amount in income_amounts]}
+
+payment_data = [{"explanation": re.sub(r"\d{6}\*+\d+", " ", e.replace("'", "")), "amount": a.replace(",", ".")} for e, a in zip(payment_explanations, payment_amounts)]
+income_data = [{"explanation": e.replace("'", ""), "amount": a.replace(",", ".")} for e, a in zip(income_explanations, income_amounts)]
 
 
 categorized_payments = categorize_payments(payment_data)
 
 print(json.dumps(reorganize_payment_data(payment_data, payment_categories, categorized_payments, row_amount, income_data)))
-
-

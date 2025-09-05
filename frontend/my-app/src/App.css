@@ -75,3 +75,13 @@ li.draggable-item {
   background-color: #ccc;
   border-radius: 3px;
 }
+
+.invis {
+  visibility: hidden;
+}
+
+.income-list-container {
+  align-items: center;
+  margin-top: 50px;
+  font-size: 1.2rem;
+}

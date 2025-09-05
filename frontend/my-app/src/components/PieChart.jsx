@@ -9,7 +9,6 @@ export default class CustomPieChart extends PureComponent {
       name: category,
       value: Number(value.amount.toFixed(2)),
     }));
-    console.log(chartData)
 
     const categoryColors = {
         Groceries: '#2A9D8F',

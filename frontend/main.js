@@ -1,11 +1,11 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron/main')
+const { app, BrowserWindow, ipcMain, dialog } = require('electron')
 const { spawn } = require('child_process');
 const path = require('path');
 
 const createWindow = () => {
   const win = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: 1600,
+    height: 1200,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -35,7 +35,12 @@ ipcMain.handle('dialog:openFile', async () => {
 
 ipcMain.handle('get-json-data', async (event, filePath) => {
   return new Promise((resolve, reject) => {
-    const pythonProcess = spawn('python3', ['/Users/krist/Documents/proge/Serious-projects/ExpenseTracker/backend/expense_tracker.py', filePath]);
+
+    const pythonPath = path.resolve(__dirname, '../backend/venv/bin/python3');
+
+    const scriptPath = path.resolve(__dirname, '../backend/expense_tracker.py');
+
+    const pythonProcess = spawn(pythonPath, [scriptPath, filePath]);
 
     let dataString = '';
     pythonProcess.stdout.on('data', (data) => {

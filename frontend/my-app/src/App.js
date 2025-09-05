@@ -2,7 +2,8 @@ import './App.css';
 import { useState } from 'react';
 import { DndContext, DragOverlay, pointerWithin } from '@dnd-kit/core';
 import BeatLoader from "react-spinners/BeatLoader";
-import CustomPieChart from './components/PieChart';
+/*import CustomPieChart from './components/PieChart'; unused */
+import CustomBarChart from './components/BarChart';
 
 import { Draggable } from './components/Draggable';
 import { Droppable } from './components/Droppable';
@@ -10,6 +11,7 @@ import { DragPreview } from './components/DragPreview';
 
 
 function App() {
+  const [activeDisplayMenuId, setActiveDisplayMenuId] = useState("expense-menu")
   const [activeId, setActiveId] = useState(null);
   const [activeNodeStyles, setActiveNodeStyles] = useState(null);
   const [file, setFile] = useState(null);
@@ -49,7 +51,9 @@ function App() {
   }
 
   function getIncomeTotal(incomeData) {
-    return incomeData.map(Number).reduce((sum, val) => sum + val, 0)
+    let sum = incomeData.flat().reduce((acc, item) => 
+        acc + parseFloat(item.amount.replace(",", ".")), 0);
+    return sum
   }
 
   function safeSubtract(a, b, tolerance = 1e-10) { // To avoid getting -0 as a result
@@ -103,7 +107,6 @@ function App() {
 
   function handleDragEnd(event) {
     const { active, over} = event;
-    console.log(over)
 
     if (!over) {
       return;
@@ -155,6 +158,10 @@ function App() {
     return `${payment} - ${amount} €`
   }
 
+  function changeDisplayMenu(newMenuId) {
+    setActiveDisplayMenuId(newMenuId)
+  }
+
   if (!file) {
     return (
       <div className="file-selection">
@@ -167,7 +174,13 @@ function App() {
 
   return (
       <div className="App">
-        <h1 className="title">Total expenses: {getExpensesTotal(categoryElements)}€, total income: {getIncomeTotal(incomeData.income)}€</h1>
+        <h1 className="title">Total expenses: {getExpensesTotal(categoryElements)}€, total income: {getIncomeTotal([incomeData])}€</h1>
+        <button onClick={() => changeDisplayMenu("expense-menu")}>Expenses</button>
+        <button onClick={() => changeDisplayMenu("income-menu")}>Income</button>
+        <button onClick={() => changeDisplayMenu("chart-menu")}>Chart</button>
+        <button onClick={() => changeDisplayMenu("fileSelect-menu")}>File Select</button>
+
+          {activeDisplayMenuId === "expense-menu" && (
           <div className='lists-container'>
             <DndContext
               onDragStart={handleDragStart}
@@ -203,12 +216,32 @@ function App() {
               </DragOverlay>
             </DndContext>
           </div>
-        <h1>Select Different File</h1>
-        <button onClick={handleOpenFile}>Choose File</button>
-        <div style={{width: '100%', height: 400}}>
-                <CustomPieChart categoryElements={categoryElements} />
+        )}
+        {activeDisplayMenuId === "income-menu" && (
+          <div className='income-list-container'>
+            <ul>
+            {incomeData.map(income => {
+              return (<li>{income.explanation} - {income.amount}</li>)
+            })}
+            </ul>
+          </div>
+        )}
+        {activeDisplayMenuId === "chart-menu" && (
+        <div>
+          <h2>Chart:</h2>
+            <div style={{width: '100%', height: 400}}>
+              <CustomBarChart categoryElements={categoryElements}/>
+            </div>
         </div>
+        )}
+        {activeDisplayMenuId === "fileSelect-menu" && (
+          <div>
+            <h1>Select File</h1>
+            <button onClick={handleOpenFile}>Choose File</button>
+          </div>
+        )}
       </div>
+
 
  );
 }
