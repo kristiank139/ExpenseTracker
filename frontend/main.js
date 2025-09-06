@@ -3,7 +3,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 
 const createWindow = () => {
-  const win = new BrowserWindow({
+  const win = new BrowserWindow({ 
     width: 1600,
     height: 1200,
     webPreferences: {
