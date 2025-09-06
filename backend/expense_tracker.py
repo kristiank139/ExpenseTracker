@@ -5,9 +5,6 @@ import json
 import os, sys
 import re
 
-# Once you incorporate your own AI model, remember that the data(text) needs to be the same as it was trained
-# .lower and .strip()
-
 script_dir = os.path.dirname(os.path.abspath(__file__))
 dotenv_path = os.path.join(script_dir, ".env")
 
@@ -24,7 +21,7 @@ def categorize_payments(payment_data):
         input = [
             {
                 "role": "developer",
-                "content": "You will be given a JSON string containing payment explanations as keys and the amount that was spent as their values. You should categorize these purchases based on the payment explanation into five different groups: 'Groceries', 'Eating out' (fast food chains, restaurants), 'Items' (like electronics, books, clothes), 'Transport', 'Other' (if you're unsure or other categories don't apply). Return a JSON string containing the n-th purchase as keys as such: '{0: {category: 'category', amount: 'amount'}, 1: etc...}'. Only output raw JSON.",
+                "content": "You will be given a JSON string containing payment descriptions as keys and the amount that was spent as their values. You should categorize these purchases based on the payment description into five different groups: 'Groceries', 'Eating out' (fast food chains, restaurants), 'Items' (like electronics, books, clothes), 'Transport', 'Other' (if you're unsure or other categories don't apply). Return a JSON string containing the n-th purchase as keys as such: '{0: category, 1: category, 2: etc...}'. Categories are lowercase, only output raw JSON.",
             },
             {
                 "role": "user",
@@ -33,6 +30,8 @@ def categorize_payments(payment_data):
         ]
     )
 
+    print(json.loads(openai_response.output_text))
+
     return json.loads(openai_response.output_text)
 
 def mask_card_number(text):
@@ -40,19 +39,19 @@ def mask_card_number(text):
 
     return re.sub(pattern, r'•••• \2', text)
 
-def reorganize_payment_data(explanations_amounts, payment_categories, categorized_payments, row_amount, income_data):
-    reorganized_payment_data = {"payment_data":
-        {payment_category: {"amount": 0, "payments": []} for payment_category in payment_categories},
-        "income_data": income_data
+def reorganize_payment_data(expenseData, incomeData, categorized_payments):
+    # Add categories to expense data
+    for n in categorized_payments:
+        expenseData[int(n)]["category"] = categorized_payments[n]
+
+    expenseData = sorted(expenseData, key=lambda x: x['date'], reverse=True) # Sort by date, newest first
+    incomeData = sorted(incomeData, key=lambda x: x['date'], reverse=True) # Sort by date, newest first
+
+    expense_income_data = {
+        "payment_data": expenseData,
+        "income_data": incomeData
     }
-
-    # Add spending amounts and explanations to data
-    for i in range(row_amount):
-        reorganized_payment_data["payment_data"][categorized_payments[str(i)]["category"]]["amount"] += float(categorized_payments[str(i)]["amount"])
-
-        reorganized_payment_data["payment_data"][categorized_payments[str(i)]["category"]]["payments"].append({mask_card_number(explanations_amounts[i]["explanation"]): categorized_payments[str(i)]["amount"]})
-    
-    return reorganized_payment_data
+    return expense_income_data
 
 payment_categories = ["Groceries", "Transport", "Eating out", "Items", "Other"]
 df = pd.read_csv(csv_path, delimiter=";")
@@ -63,20 +62,23 @@ unnecessary_row_tags = ["Algsaldo", "Käive", "lõppsaldo"]
 
 row_amount = 10
 
-income_expense_df = df[~df["Selgitus"].isin(unnecessary_row_tags)]
-income_df = income_expense_df[income_expense_df["Deebet/Kreedit"] == "K"]
-expense_df = df[df["Deebet/Kreedit"] != "K"]
+payments_df = df[~df["Selgitus"].isin(unnecessary_row_tags)]
+income_df = payments_df[payments_df["Deebet/Kreedit"] == "K"]
+expense_df = payments_df[payments_df["Deebet/Kreedit"] != "K"]
 
-payment_explanations = expense_df["Selgitus"].head(row_amount).tolist()
+payment_descriptions = expense_df["Selgitus"].head(row_amount).tolist()
+payment_dates = expense_df["Kuupäev"].head(row_amount).tolist()
+payment_unique_id = expense_df["Arhiveerimistunnus"].head(row_amount).tolist()
 payment_amounts = expense_df["Summa"].head(row_amount).tolist()
-income_explanations = income_df["Selgitus"].head(5).tolist()
+
+income_descriptions = income_df["Selgitus"].head(5).tolist()
+income_dates = income_df["Kuupäev"].head(5).tolist()
+income_unique_id = income_df["Arhiveerimistunnus"].head(5).tolist()
 income_amounts = income_df["Summa"].head(5).tolist() # Need to get head length!
 
+expenseData = [{"description": re.sub(r"\d{6}\*+\d+|\b\d{2}\.\d{2}\.\d{2,4}\b", " ", e.replace("'", "")), "amount": a.replace(",", "."), "date": d, "unique_id": int(i)} for e, a, d, i in zip(payment_descriptions, payment_amounts, payment_dates, payment_unique_id)]
+incomeData = [{"description": e.replace("'", ""), "amount": a.replace(",", "."), "date": d, "unique_id": int(i)} for e, a, d, i in zip(income_descriptions, income_amounts, income_dates, income_unique_id)]
 
-payment_data = [{"explanation": re.sub(r"\d{6}\*+\d+", " ", e.replace("'", "")), "amount": a.replace(",", ".")} for e, a in zip(payment_explanations, payment_amounts)]
-income_data = [{"explanation": e.replace("'", ""), "amount": a.replace(",", ".")} for e, a in zip(income_explanations, income_amounts)]
+AI_categorized_payments = categorize_payments(payment_descriptions)
 
-
-categorized_payments = categorize_payments(payment_data)
-
-print(json.dumps(reorganize_payment_data(payment_data, payment_categories, categorized_payments, row_amount, income_data)))
+print(json.dumps(reorganize_payment_data(expenseData, incomeData, AI_categorized_payments)))
