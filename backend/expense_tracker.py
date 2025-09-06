@@ -30,8 +30,6 @@ def categorize_payments(payment_data):
         ]
     )
 
-    print(json.loads(openai_response.output_text))
-
     return json.loads(openai_response.output_text)
 
 def mask_card_number(text):
@@ -71,10 +69,10 @@ payment_dates = expense_df["Kuupäev"].head(row_amount).tolist()
 payment_unique_id = expense_df["Arhiveerimistunnus"].head(row_amount).tolist()
 payment_amounts = expense_df["Summa"].head(row_amount).tolist()
 
-income_descriptions = income_df["Selgitus"].head(5).tolist()
-income_dates = income_df["Kuupäev"].head(5).tolist()
-income_unique_id = income_df["Arhiveerimistunnus"].head(5).tolist()
-income_amounts = income_df["Summa"].head(5).tolist() # Need to get head length!
+income_descriptions = income_df["Selgitus"].head(7).tolist()
+income_dates = income_df["Kuupäev"].head(7).tolist()
+income_unique_id = income_df["Arhiveerimistunnus"].head(7).tolist()
+income_amounts = income_df["Summa"].head(7).tolist() # Need to get head length!
 
 expenseData = [{"description": re.sub(r"\d{6}\*+\d+|\b\d{2}\.\d{2}\.\d{2,4}\b", " ", e.replace("'", "")), "amount": a.replace(",", "."), "date": d, "unique_id": int(i)} for e, a, d, i in zip(payment_descriptions, payment_amounts, payment_dates, payment_unique_id)]
 incomeData = [{"description": e.replace("'", ""), "amount": a.replace(",", "."), "date": d, "unique_id": int(i)} for e, a, d, i in zip(income_descriptions, income_amounts, income_dates, income_unique_id)]

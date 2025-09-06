@@ -24,7 +24,11 @@ function App() {
     "items": {"amount": 0, "payments": []},
     "other": {"amount": 0, "payments": []}
   });
-  const [incomeData, setIncomeData] = useState(null);
+
+  const [transactionData, setTransactionData] = useState({
+    "payment_data": [],
+    "income_data": []
+  });
 
   function LoadingSpinner() {
     return <div>
@@ -38,22 +42,40 @@ function App() {
     setLoading(true)
 
     const jsonData = await window.electronAPI.getJsonData(filePath);
-    console.log(jsonData)
 
-    setCategoryElements(jsonData.payment_data);
-    setIncomeData(jsonData.income_data)
+    setTransactionData(jsonData)
+    setCategoryElements(transformDataToCategoryElements(jsonData.payment_data));
     setFile(filePath);
-    setLoading(null)
+    setLoading(null);
+
+    jsonData.payment_data.forEach(payment => {
+      window.paymentAPI.addPayment(payment);
+    });
   };
 
-  function getExpensesTotal(jsonData) {
-    return Object.values(jsonData).reduce((sum, category) => sum + category.amount, 0).toFixed(2);
+  function transformDataToCategoryElements(data) {
+    const newCategoryElements = {
+      "groceries": {"amount": 0, "payments": []},
+      "transport": {"amount": 0, "payments": []},
+      "eating out": {"amount": 0, "payments": []},
+      "items": {"amount": 0, "payments": []},
+      "other": {"amount": 0, "payments": []}
+    };
+
+    data.forEach(payment => {
+      newCategoryElements[payment.category].payments.push({ [payment.description]: payment.amount });
+      newCategoryElements[payment.category].amount += parseFloat(payment.amount);
+    })
+
+    return newCategoryElements
+  };
+
+  function getExpensesTotal(expenseData) {
+    return expenseData.reduce((sum, item) => sum + parseFloat(item.amount), 0).toFixed(2);
   }
 
   function getIncomeTotal(incomeData) {
-    let sum = incomeData.flat().reduce((acc, item) => 
-        acc + parseFloat(item.amount.replace(",", ".")), 0);
-    return sum
+    return incomeData.reduce((sum, item) => sum + parseFloat(item.amount), 0).toFixed(2);
   }
 
   function safeSubtract(a, b, tolerance = 1e-10) { // To avoid getting -0 as a result
@@ -174,7 +196,7 @@ function App() {
 
   return (
       <div className="App">
-        <h1 className="title">Total expenses: {getExpensesTotal(categoryElements)}€, total income: {getIncomeTotal([incomeData])}€</h1>
+        <h1 className="title">Total expenses: {getExpensesTotal(transactionData.payment_data)}€, total income: {getIncomeTotal(transactionData.income_data)}€</h1>
         <button onClick={() => changeDisplayMenu("expense-menu")}>Expenses</button>
         <button onClick={() => changeDisplayMenu("income-menu")}>Income</button>
         <button onClick={() => changeDisplayMenu("chart-menu")}>Chart</button>
@@ -220,8 +242,8 @@ function App() {
         {activeDisplayMenuId === "income-menu" && (
           <div className='income-list-container'>
             <ul>
-            {incomeData.map(income => {
-              return (<li>{income.explanation} - {income.amount}</li>)
+            {transactionData.income_data.map(income => {
+              return (<li>{income.description} - {income.amount}</li>)
             })}
             </ul>
           </div>

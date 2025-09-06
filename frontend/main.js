@@ -1,6 +1,25 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron')
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs');
+const Database = require('better-sqlite3');
+
+const dbDir = path.join(app.getPath('userData'), 'database');
+if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+
+const dbPath = path.join(dbDir, 'payments.sqlite');
+const db = new Database(dbPath);
+
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    unique_id INTEGER NOT NULL,
+    amount REAL NOT NULL,
+    description TEXT,
+    category TEXT
+  )
+`).run();
 
 const createWindow = () => {
   const win = new BrowserWindow({
@@ -17,6 +36,19 @@ const createWindow = () => {
   win.webContents.openDevTools()
 }
 
+function addPayment(payment) {
+  const stmt = db.prepare(`
+    INSERT INTO payments (date, unique_id, amount, description, category)
+    VALUES (?, ?, ?, ?, ?)
+  `);
+  stmt.run(payment.date, payment.unique_id, payment.amount, payment.description, payment.category);
+}
+
+function getPayments() {
+  const stmt = db.prepare('SELECT * FROM payments ORDER BY date DESC');
+  return stmt.all();
+}
+
 ipcMain.handle('dialog:openFile', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
@@ -31,6 +63,14 @@ ipcMain.handle('dialog:openFile', async () => {
   } else {
     return result.filePaths[0];
   }
+});
+
+ipcMain.handle('add-payment', (event, payment) => {
+  addPayment(payment);
+});
+
+ipcMain.handle('get-payments', () => {
+  return getPayments();
 });
 
 ipcMain.handle('get-json-data', async (event, filePath) => {
