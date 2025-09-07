@@ -18,7 +18,8 @@ db.prepare(`
     unique_id INTEGER NOT NULL,
     amount REAL NOT NULL,
     description TEXT,
-    category TEXT
+    category TEXT,
+    type TEXT
   )
 `).run();
 
@@ -37,15 +38,14 @@ const createWindow = () => {
   win.webContents.openDevTools()
 }
 
-function addPayment(payment) {
+function addPayment(payment, type) {
 
   const stmt = db.prepare(`
-    INSERT INTO payments (date, unique_id, amount, description, category)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO payments (date, unique_id, amount, description, category, type)
+    VALUES (?, ?, ?, ?, ?, ?)
   `);
 
-   stmt.run(payment.date, payment.unique_id, payment.amount, payment.description, payment.category);
-
+   stmt.run(payment.date, payment.unique_id, payment.amount, payment.description, payment.category, type);
 }
 
 function getPayments() {
@@ -75,8 +75,8 @@ ipcMain.handle('dialog:openFile', async () => {
   }
 });
 
-ipcMain.handle('add-payment', (event, payment) => {
-  addPayment(payment);
+ipcMain.handle('add-payment', (event, payment, type) => {
+  addPayment(payment, type);
 });
 
 ipcMain.handle('get-payments', () => {

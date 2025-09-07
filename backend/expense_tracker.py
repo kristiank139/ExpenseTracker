@@ -7,7 +7,7 @@ import re
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 dotenv_path = os.path.join(script_dir, ".env")
-unique_ids = []
+unique_ids = [2025060101714519] # Default unique IDs to ignore
 
 if len(sys.argv) == 1:
     csv_path = os.path.join(script_dir, "statement.csv")
@@ -60,27 +60,35 @@ client = OpenAI()
 
 unnecessary_row_tags = ["Algsaldo", "Käive", "lõppsaldo"]
 
-row_amount = 20
+row_amount = 13
 
 payments_df = df[~df["Selgitus"].isin(unnecessary_row_tags)] # Remove unnecessary rows
+payments_df = payments_df.head(row_amount)
+
 if unique_ids:
     payments_df = payments_df[~payments_df["Arhiveerimistunnus"].isin(unique_ids)] # Remove already added payments
+
+if payments_df["Arhiveerimistunnus"].empty: # If there are no new payments to add, no API request is made
+    print(json.dumps({"payment_data": [], "income_data": []}))
+    sys.exit(0)
+
 income_df = payments_df[payments_df["Deebet/Kreedit"] == "K"]
 expense_df = payments_df[payments_df["Deebet/Kreedit"] != "K"]
 
-payment_descriptions = expense_df["Selgitus"].head(row_amount).tolist()
-payment_dates = expense_df["Kuupäev"].head(row_amount).tolist()
-payment_unique_id = expense_df["Arhiveerimistunnus"].head(row_amount).tolist()
-payment_amounts = expense_df["Summa"].head(row_amount).tolist()
+payment_unique_id = expense_df["Arhiveerimistunnus"].tolist()
+payment_descriptions = expense_df["Selgitus"].tolist()
+payment_descriptions_cleaned = [re.sub(r"\d{6}\*+\d+|\b\d{2}\.\d{2}\.\d{2,4}\b", " ", e.replace("'", "")) for e in payment_descriptions] # Clean descriptions for AI categorization
+payment_dates = expense_df["Kuupäev"].tolist()
+payment_amounts = expense_df["Summa"].tolist()
 
-income_descriptions = income_df["Selgitus"].head(7).tolist()
-income_dates = income_df["Kuupäev"].head(7).tolist()
-income_unique_id = income_df["Arhiveerimistunnus"].head(7).tolist()
-income_amounts = income_df["Summa"].head(7).tolist() # Need to get head length!
+income_descriptions = income_df["Selgitus"].tolist()
+income_dates = income_df["Kuupäev"].tolist()
+income_unique_id = income_df["Arhiveerimistunnus"].tolist()
+income_amounts = income_df["Summa"].tolist() # Need to get head length!
 
 expenseData = [{"description": re.sub(r"\d{6}\*+\d+|\b\d{2}\.\d{2}\.\d{2,4}\b", " ", e.replace("'", "")), "amount": a.replace(",", "."), "date": d, "unique_id": int(i)} for e, a, d, i in zip(payment_descriptions, payment_amounts, payment_dates, payment_unique_id)]
 incomeData = [{"description": e.replace("'", ""), "amount": a.replace(",", "."), "date": d, "unique_id": str(i)} for e, a, d, i in zip(income_descriptions, income_amounts, income_dates, income_unique_id)]
 
-AI_categorized_payments = categorize_payments(payment_descriptions)
+AI_categorized_payments = categorize_payments(payment_descriptions_cleaned)
 
 print(json.dumps(reorganize_payment_data(expenseData, incomeData, AI_categorized_payments)))

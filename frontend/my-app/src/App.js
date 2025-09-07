@@ -51,19 +51,21 @@ function App() {
 
     setLoading(true)
 
-    const uniqueIds = JSON.stringify(transactionData.payment_data.map(p => String(p.unique_id)))
+    const uniqueIds = JSON.stringify(transactionData.payment_data.map(p => p.unique_id)) // maybe could remove json
     const jsonData = await window.electronAPI.getJsonData(filePath, uniqueIds);
-
-    setTransactionData(jsonData)
-    setData(true);
-    setLoading(null);
 
     // Check for new data to add to database
     jsonData.payment_data.forEach(payment => {
-      window.paymentAPI.addPayment(payment);
+      window.paymentAPI.addPayment(payment, "expense");
+    });
+
+    jsonData.income_data.forEach(payment => {
+      window.paymentAPI.addPayment(payment, "income");
     });
 
     loadDatabasePayments();
+    setLoading(null);
+
   };
 
   function transformDataToCategoryElements(data) {

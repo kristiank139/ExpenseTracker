@@ -6,6 +6,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
 });
 
 contextBridge.exposeInMainWorld('paymentAPI', {
-  addPayment: (payment) => ipcRenderer.invoke('add-payment', payment),
+  addPayment: (payment, type) => ipcRenderer.invoke('add-payment', payment, type),
   getPayments: () => ipcRenderer.invoke('get-payments')
 });
