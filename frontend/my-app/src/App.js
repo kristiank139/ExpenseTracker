@@ -1,5 +1,5 @@
 import './App.css';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DndContext, DragOverlay, pointerWithin } from '@dnd-kit/core';
 import BeatLoader from "react-spinners/BeatLoader";
 /*import CustomPieChart from './components/PieChart'; unused */
@@ -9,12 +9,11 @@ import { Draggable } from './components/Draggable';
 import { Droppable } from './components/Droppable';
 import { DragPreview } from './components/DragPreview';
 
-
 function App() {
   const [activeDisplayMenuId, setActiveDisplayMenuId] = useState("expense-menu")
   const [activeId, setActiveId] = useState(null);
   const [activeNodeStyles, setActiveNodeStyles] = useState(null);
-  const [file, setFile] = useState(null);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(null);
   // This is where I can add/remove categories
   const [categoryElements, setCategoryElements] = useState({
@@ -24,11 +23,21 @@ function App() {
     "items": {"amount": 0, "payments": []},
     "other": {"amount": 0, "payments": []}
   });
-
   const [transactionData, setTransactionData] = useState({
     "payment_data": [],
     "income_data": []
   });
+
+  function loadDatabasePayments() {
+    window.paymentAPI.getPayments().then((payments) => {
+      setTransactionData((prev) => ({
+        ...prev,
+        "payment_data": payments
+      }));
+      setCategoryElements(transformDataToCategoryElements(payments));
+      setData(true);
+    });
+  }
 
   function LoadingSpinner() {
     return <div>
@@ -39,18 +48,22 @@ function App() {
   const handleOpenFile = async () => {
     const filePath = await window.electronAPI.openFile();
     if (!filePath) return;
+
     setLoading(true)
 
-    const jsonData = await window.electronAPI.getJsonData(filePath);
+    const uniqueIds = JSON.stringify(transactionData.payment_data.map(p => String(p.unique_id)))
+    const jsonData = await window.electronAPI.getJsonData(filePath, uniqueIds);
 
     setTransactionData(jsonData)
-    setCategoryElements(transformDataToCategoryElements(jsonData.payment_data));
-    setFile(filePath);
+    setData(true);
     setLoading(null);
 
+    // Check for new data to add to database
     jsonData.payment_data.forEach(payment => {
       window.paymentAPI.addPayment(payment);
     });
+
+    loadDatabasePayments();
   };
 
   function transformDataToCategoryElements(data) {
@@ -184,7 +197,9 @@ function App() {
     setActiveDisplayMenuId(newMenuId)
   }
 
-  if (!file) {
+  if (!data) {
+    loadDatabasePayments()
+    
     return (
       <div className="file-selection">
         {loading ? <LoadingSpinner /> : <>
@@ -258,8 +273,9 @@ function App() {
         )}
         {activeDisplayMenuId === "fileSelect-menu" && (
           <div>
-            <h1>Select File</h1>
-            <button onClick={handleOpenFile}>Choose File</button>
+            {loading ? <LoadingSpinner /> : <>
+            <h1>Select CSV File To Get Started</h1>
+            <button onClick={handleOpenFile}>Choose File</button></>}
           </div>
         )}
       </div>

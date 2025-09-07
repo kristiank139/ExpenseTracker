@@ -9,6 +9,7 @@ if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
 
 const dbPath = path.join(dbDir, 'payments.sqlite');
 const db = new Database(dbPath);
+const log = require('electron-log');
 
 db.prepare(`
   CREATE TABLE IF NOT EXISTS payments (
@@ -37,16 +38,25 @@ const createWindow = () => {
 }
 
 function addPayment(payment) {
+
   const stmt = db.prepare(`
     INSERT INTO payments (date, unique_id, amount, description, category)
     VALUES (?, ?, ?, ?, ?)
   `);
-  stmt.run(payment.date, payment.unique_id, payment.amount, payment.description, payment.category);
+
+   stmt.run(payment.date, payment.unique_id, payment.amount, payment.description, payment.category);
+
 }
 
 function getPayments() {
-  const stmt = db.prepare('SELECT * FROM payments ORDER BY date DESC');
-  return stmt.all();
+  // Dynamically get columns except id
+  const columns = db.prepare('PRAGMA table_info(payments)').all()
+      .map(col => col.name)
+      .filter(name => name !== 'id')
+      .join(', ');
+
+  const rows = db.prepare(`SELECT ${columns} FROM payments ORDER BY date DESC`).all();
+  return rows;
 }
 
 ipcMain.handle('dialog:openFile', async () => {
@@ -73,14 +83,15 @@ ipcMain.handle('get-payments', () => {
   return getPayments();
 });
 
-ipcMain.handle('get-json-data', async (event, filePath) => {
+ipcMain.handle('get-json-data', async (event, filePath, unique_ids) => {
   return new Promise((resolve, reject) => {
 
     const pythonPath = path.resolve(__dirname, '../backend/venv/bin/python3');
 
     const scriptPath = path.resolve(__dirname, '../backend/expense_tracker.py');
 
-    const pythonProcess = spawn(pythonPath, [scriptPath, filePath]);
+    log.info(`Spawning Python process: ${pythonPath} ${scriptPath} ${filePath} ${unique_ids}`);
+    const pythonProcess = spawn(pythonPath, [scriptPath, filePath, unique_ids]);
 
     let dataString = '';
     pythonProcess.stdout.on('data', (data) => {
