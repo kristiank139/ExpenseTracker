@@ -7,11 +7,13 @@ import re
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 dotenv_path = os.path.join(script_dir, ".env")
+unique_ids = []
 
 if len(sys.argv) == 1:
     csv_path = os.path.join(script_dir, "statement.csv")
 else:
     csv_path = sys.argv[1]
+    unique_ids = json.loads(sys.argv[2]) # Get unique IDs from command line arguments
 
 load_dotenv(dotenv_path)
 
@@ -58,9 +60,11 @@ client = OpenAI()
 
 unnecessary_row_tags = ["Algsaldo", "Käive", "lõppsaldo"]
 
-row_amount = 10
+row_amount = 20
 
-payments_df = df[~df["Selgitus"].isin(unnecessary_row_tags)]
+payments_df = df[~df["Selgitus"].isin(unnecessary_row_tags)] # Remove unnecessary rows
+if unique_ids:
+    payments_df = payments_df[~payments_df["Arhiveerimistunnus"].isin(unique_ids)] # Remove already added payments
 income_df = payments_df[payments_df["Deebet/Kreedit"] == "K"]
 expense_df = payments_df[payments_df["Deebet/Kreedit"] != "K"]
 
@@ -75,7 +79,7 @@ income_unique_id = income_df["Arhiveerimistunnus"].head(7).tolist()
 income_amounts = income_df["Summa"].head(7).tolist() # Need to get head length!
 
 expenseData = [{"description": re.sub(r"\d{6}\*+\d+|\b\d{2}\.\d{2}\.\d{2,4}\b", " ", e.replace("'", "")), "amount": a.replace(",", "."), "date": d, "unique_id": int(i)} for e, a, d, i in zip(payment_descriptions, payment_amounts, payment_dates, payment_unique_id)]
-incomeData = [{"description": e.replace("'", ""), "amount": a.replace(",", "."), "date": d, "unique_id": int(i)} for e, a, d, i in zip(income_descriptions, income_amounts, income_dates, income_unique_id)]
+incomeData = [{"description": e.replace("'", ""), "amount": a.replace(",", "."), "date": d, "unique_id": str(i)} for e, a, d, i in zip(income_descriptions, income_amounts, income_dates, income_unique_id)]
 
 AI_categorized_payments = categorize_payments(payment_descriptions)
 
