@@ -64,7 +64,9 @@ function App() {
 
     // Check for new data to add to database
     jsonData.payment_data.forEach(payment => {
-      window.paymentAPI.addPayment(payment, "expense");
+      if (payment.category) {
+        window.paymentAPI.addPayment(payment, "expense");
+      }
     });
 
     jsonData.income_data.forEach(payment => {
