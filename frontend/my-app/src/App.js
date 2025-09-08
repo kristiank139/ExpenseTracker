@@ -32,6 +32,9 @@ function App() {
     window.paymentAPI.getPayments().then((payments) => {
       let expenses = payments.filter(p => p.type === "expense");
       let income = payments.filter(p => p.type === "income");
+      if (expenses.length === 0 && income.length === 0) {
+        return;
+      }
       setTransactionData(() => ({
         "payment_data": expenses,
         "income_data": income
@@ -51,7 +54,8 @@ function App() {
     const filePath = await window.electronAPI.openFile();
     if (!filePath) return;
 
-    setLoading(true)
+    setData(null);
+    setLoading(true);
 
     const uniqueExpenseIds = transactionData.payment_data.map(p => p.unique_id) // maybe could remove json
     const uniqueIncomeIds = transactionData.income_data.map(p => p.unique_id)
@@ -67,6 +71,7 @@ function App() {
       window.paymentAPI.addPayment(payment, "income");
     });
 
+    setData(false);
     loadDatabasePayments();
     setLoading(null);
 
@@ -204,17 +209,20 @@ function App() {
   }
 
   if (!data) {
-    loadDatabasePayments()
+    loadDatabasePayments() // Checks database for existing payments, if none, shows starting screen
     
     return (
-      <div className="file-selection">
+      <div className="starting-screen">
         {loading ? <LoadingSpinner /> : <>
+        <h1>Welcome to your Expense Tracker</h1>
         <h1>Select CSV File To Get Started</h1>
-        <button onClick={handleOpenFile}>Choose File</button></>}
+        <button onClick={handleOpenFile}>Choose File</button></>
+        }
+        {data === false && <p style={{color: 'red'}}>No data found.</p>}
       </div>
     )
   }
-
+  
   return (
       <div className="App">
         <h1 className="title">Total expenses: {getExpensesTotal(transactionData.payment_data)}€, total income: {getIncomeTotal(transactionData.income_data)}€</h1>
@@ -263,6 +271,7 @@ function App() {
         {activeDisplayMenuId === "income-menu" && (
           <div className='income-list-container'>
             <ul>
+            {transactionData.income_data.length === 0 && <p>No income data found.</p>}
             {transactionData.income_data.map((income, index) => {
               return (<li key={`${income.type}-${index}`}>{income.description} - {income.amount}</li>)
             })}

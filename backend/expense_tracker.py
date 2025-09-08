@@ -23,7 +23,7 @@ def categorize_payments(payment_data):
         input = [
             {
                 "role": "developer",
-                "content": "You will be given a JSON string containing payment descriptions as keys and the amount that was spent as their values. You should categorize these purchases based on the payment description into five different groups: 'Groceries', 'Eating out' (fast food chains, restaurants), 'Items' (like electronics, books, clothes), 'Transport', 'Other' (if you're unsure or other categories don't apply). Return a JSON string containing the n-th purchase as keys as such: '{0: category, 1: category, 2: etc...}'. Categories are lowercase, only output raw JSON.",
+                "content": "You will be given a JSON string containing payment descriptions as keys and the amount that was spent as their values. You should categorize these purchases based on the payment description into five different groups: 'Groceries', 'Eating out' (fast food chains, restaurants), 'Items' (like electronics, books, clothes), 'Transport', 'Other' (if you're unsure or other categories don't apply). Return a JSON string containing the n-th purchase as keys as such: '{0: category, 1: category, 2: etc...}'. Make sure EVERY payment has its category. Categories are lowercase, only output raw JSON.",
             },
             {
                 "role": "user",
@@ -43,6 +43,8 @@ def reorganize_payment_data(expenseData, incomeData, categorized_payments):
     # Add categories to expense data
     for n in categorized_payments:
         expenseData[int(n)]["category"] = categorized_payments[n]
+    
+    print(expenseData)
 
     expenseData = sorted(expenseData, key=lambda x: x['date'], reverse=True) # Sort by date, newest first
     incomeData = sorted(incomeData, key=lambda x: x['date'], reverse=True) # Sort by date, newest first
@@ -60,7 +62,7 @@ client = OpenAI()
 
 unnecessary_row_tags = ["Algsaldo", "Käive", "lõppsaldo"]
 
-row_amount = 24
+row_amount = 1000
 
 payments_df = df[~df["Selgitus"].isin(unnecessary_row_tags)] # Remove unnecessary rows
 payments_df = payments_df.head(row_amount)
@@ -90,5 +92,9 @@ expenseData = [{"description": re.sub(r"\d{6}\*+\d+", " ", e.replace("'", "")), 
 incomeData = [{"description": e.replace("'", ""), "amount": a.replace(",", "."), "date": d, "unique_id": str(i)} for e, a, d, i in zip(income_descriptions, income_amounts, income_dates, income_unique_id)]
 
 AI_categorized_payments = categorize_payments(payment_descriptions_cleaned)
+
+print("------------")
+reorganize_payment_data(expenseData, incomeData, AI_categorized_payments)
+print("------------")
 
 print(json.dumps(reorganize_payment_data(expenseData, incomeData, AI_categorized_payments)))
