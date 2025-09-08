@@ -60,7 +60,7 @@ client = OpenAI()
 
 unnecessary_row_tags = ["Algsaldo", "Käive", "lõppsaldo"]
 
-row_amount = 13
+row_amount = 24
 
 payments_df = df[~df["Selgitus"].isin(unnecessary_row_tags)] # Remove unnecessary rows
 payments_df = payments_df.head(row_amount)
@@ -86,7 +86,7 @@ income_dates = income_df["Kuupäev"].tolist()
 income_unique_id = income_df["Arhiveerimistunnus"].tolist()
 income_amounts = income_df["Summa"].tolist() # Need to get head length!
 
-expenseData = [{"description": re.sub(r"\d{6}\*+\d+|\b\d{2}\.\d{2}\.\d{2,4}\b", " ", e.replace("'", "")), "amount": a.replace(",", "."), "date": d, "unique_id": int(i)} for e, a, d, i in zip(payment_descriptions, payment_amounts, payment_dates, payment_unique_id)]
+expenseData = [{"description": re.sub(r"\d{6}\*+\d+", " ", e.replace("'", "")), "amount": a.replace(",", "."), "date": d, "unique_id": int(i)} for e, a, d, i in zip(payment_descriptions, payment_amounts, payment_dates, payment_unique_id)]
 incomeData = [{"description": e.replace("'", ""), "amount": a.replace(",", "."), "date": d, "unique_id": str(i)} for e, a, d, i in zip(income_descriptions, income_amounts, income_dates, income_unique_id)]
 
 AI_categorized_payments = categorize_payments(payment_descriptions_cleaned)

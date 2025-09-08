@@ -30,11 +30,13 @@ function App() {
 
   function loadDatabasePayments() {
     window.paymentAPI.getPayments().then((payments) => {
-      setTransactionData((prev) => ({
-        ...prev,
-        "payment_data": payments
+      let expenses = payments.filter(p => p.type === "expense");
+      let income = payments.filter(p => p.type === "income");
+      setTransactionData(() => ({
+        "payment_data": expenses,
+        "income_data": income
       }));
-      setCategoryElements(transformDataToCategoryElements(payments));
+      setCategoryElements(transformDataToCategoryElements(expenses));
       setData(true);
     });
   }
@@ -51,7 +53,9 @@ function App() {
 
     setLoading(true)
 
-    const uniqueIds = JSON.stringify(transactionData.payment_data.map(p => p.unique_id)) // maybe could remove json
+    const uniqueExpenseIds = transactionData.payment_data.map(p => p.unique_id) // maybe could remove json
+    const uniqueIncomeIds = transactionData.income_data.map(p => p.unique_id)
+    const uniqueIds = JSON.stringify([...new Set([...uniqueExpenseIds, ...uniqueIncomeIds])])
     const jsonData = await window.electronAPI.getJsonData(filePath, uniqueIds);
 
     // Check for new data to add to database
@@ -259,8 +263,8 @@ function App() {
         {activeDisplayMenuId === "income-menu" && (
           <div className='income-list-container'>
             <ul>
-            {transactionData.income_data.map(income => {
-              return (<li>{income.description} - {income.amount}</li>)
+            {transactionData.income_data.map((income, index) => {
+              return (<li key={`${income.type}-${index}`}>{income.description} - {income.amount}</li>)
             })}
             </ul>
           </div>
