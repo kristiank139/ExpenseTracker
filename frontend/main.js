@@ -7,6 +7,8 @@ const Database = require('better-sqlite3');
 const dbDir = path.join(app.getPath('userData'), 'database');
 if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
 
+let win; // Declare win in a scope accessible to all functions
+let totalItems = 0; // Total items to process, for progress tracking
 const dbPath = path.join(dbDir, 'payments.sqlite');
 const db = new Database(dbPath);
 const log = require('electron-log');
@@ -24,7 +26,7 @@ db.prepare(`
 `).run();
 
 const createWindow = () => {
-  const win = new BrowserWindow({
+  win = new BrowserWindow({
     width: 1600,
     height: 1200,
     webPreferences: {
@@ -39,21 +41,20 @@ const createWindow = () => {
 }
 
 function addPayment(payment, type) {
-
   const stmt = db.prepare(`
     INSERT INTO payments (date, unique_id, amount, description, category, type)
     VALUES (?, ?, ?, ?, ?, ?)
-  `);
+    `);
 
-   stmt.run(payment.date, payment.unique_id, payment.amount, payment.description, payment.category, type);
+  stmt.run(payment.date, payment.unique_id, payment.amount, payment.description, payment.category, type);
 }
 
 function getPayments() {
   // Dynamically get columns except id
   const columns = db.prepare('PRAGMA table_info(payments)').all()
-      .map(col => col.name)
-      .filter(name => name !== 'id')
-      .join(', ');
+    .map(col => col.name)
+    .filter(name => name !== 'id')
+    .join(', ');
 
   const rows = db.prepare(`SELECT ${columns} FROM payments ORDER BY date DESC`).all();
   return rows;
@@ -63,8 +64,8 @@ ipcMain.handle('dialog:openFile', async () => {
   const result = await dialog.showOpenDialog({
     properties: ['openFile'],
     filters: [
-      { name: 'CSV Files', extensions: ['csv']},
-      { name: 'All files', extensions: ['*']}
+      { name: 'CSV Files', extensions: ['csv'] },
+      { name: 'All files', extensions: ['*'] }
     ]
   });
 
@@ -93,6 +94,18 @@ ipcMain.handle('get-json-data', async (event, filePath, unique_ids) => {
     log.info(`Spawning Python process: ${pythonPath} ${scriptPath} ${filePath} ${unique_ids}`);
     const pythonProcess = spawn(pythonPath, [scriptPath, filePath, unique_ids]);
 
+    pythonProcess.stderr.on('data', (data) => {
+      const progress = data.toString().trim();
+      log.info('Progress:', progress);
+
+      if (totalItems === 0) {
+        totalItems = progress; // first number is total
+        win.webContents.send('progress-total', totalItems);
+      } else {
+        win.webContents.send('progress-update', progress);
+      }
+    });
+
     let dataString = '';
     pythonProcess.stdout.on('data', (data) => {
       dataString += data.toString();
@@ -117,11 +130,11 @@ ipcMain.handle('get-json-data', async (event, filePath, unique_ids) => {
 
 app.whenReady().then(() => {
   createWindow()
-  
+
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow() 
+      createWindow()
     }
   })
 })

@@ -4,6 +4,7 @@ import { DndContext, DragOverlay, pointerWithin } from '@dnd-kit/core';
 import BeatLoader from "react-spinners/BeatLoader";
 /*import CustomPieChart from './components/PieChart'; unused */
 import CustomBarChart from './components/BarChart';
+import ProgressBar from './components/ProgressBar';
 
 import { Draggable } from './components/Draggable';
 import { Droppable } from './components/Droppable';
@@ -46,6 +47,7 @@ function App() {
 
   function LoadingSpinner() {
     return <div>
+              <ProgressBar />
               <BeatLoader size={25} color="#2A9D8F" />
            </div>
   }
@@ -275,7 +277,7 @@ function App() {
             <ul>
             {transactionData.income_data.length === 0 && <p>No income data found.</p>}
             {transactionData.income_data.map((income, index) => {
-              return (<li key={`${income.type}-${index}`}>{income.description} - {income.amount}</li>)
+              return (<li key={`${income.type}-${index}`}>{income.description} - {income.amount} €</li>)
             })}
             </ul>
           </div>

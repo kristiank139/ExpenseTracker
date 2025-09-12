@@ -19,13 +19,13 @@ load_dotenv(dotenv_path)
 
 
 # Going over 30 rows at a time can give inaccurate results
-def categorize_payments(payment_data):
+def categorize_expenses(payment_data):
     openai_response = client.responses.create(
         model = "gpt-4.1",
         input = [
             {
                 "role": "developer",
-                "content": "You will be given a JSON string containing payment descriptions as keys and the amount that was spent as their values. You should categorize these purchases based on the payment description into five different groups: 'Groceries', 'Eating out' (fast food chains, restaurants), 'Items' (like electronics, books, clothes), 'Transport', 'Other' (if you're unsure or other categories don't apply). Return a JSON string containing the n-th purchase as keys as such: '{0: category, 1: category, 2: etc...}'. Categories are lowercase, only output raw JSON.",
+                "content": "You will be given a JSON string containing payment descriptions as keys and the amount that was spent as their values. You should categorize these purchases based on the payment description into five different groups: 'Groceries', 'Eating out' (fast food chains, restaurants), 'Items' (like electronics, books, clothes), 'Transport', 'Other' (if you're unsure or other categories don't apply). Return a JSON string containing the n-th purchase as keys as such: '{0: category, 1: category, 2: etc...}'. There must be as many keys as there is payments. Categories are lowercase, only output raw JSON.",
             },
             {
                 "role": "user",
@@ -42,7 +42,7 @@ def mask_card_number(text):
     return re.sub(pattern, r'•••• \2', text)
 
 def reorganize_payment_data(expenseData, incomeData, categorized_payments):
-    categoryCount = int(list(categorized_payments.keys())[-1]) + 1 # In case the AI returns less categories than payments
+    categoryCount = len(categorized_payments) # In case the AI returns less categories than payments
     # Add categories to expense data
     for n in range(categoryCount):
         expenseData[n]["category"] = categorized_payments[str(n)]
@@ -63,7 +63,7 @@ client = OpenAI()
 
 unnecessary_row_tags = ["Algsaldo", "Käive", "lõppsaldo"]
 
-row_amount = 30
+row_amount = 80
 
 payments_df = df[~df["Selgitus"].isin(unnecessary_row_tags)] # Remove unnecessary rows
 payments_df = payments_df.head(row_amount)
@@ -77,21 +77,46 @@ if payments_df["Arhiveerimistunnus"].empty: # If there are no new payments to ad
 
 income_df = payments_df[payments_df["Deebet/Kreedit"] == "K"]
 expense_df = payments_df[payments_df["Deebet/Kreedit"] != "K"]
+print(len(expense_df), file=sys.stderr, flush=True) # Print total number of expenses to stderr for frontend to read
 
-payment_unique_id = expense_df["Arhiveerimistunnus"].tolist()
-payment_descriptions = expense_df["Selgitus"].tolist()
-payment_descriptions_cleaned = [re.sub(r"\d{6}\*+\d+|\b\d{2}\.\d{2}\.\d{2,4}\b", " ", e.replace("'", "")) for e in payment_descriptions] # Clean descriptions for AI categorization
-payment_dates = expense_df["Kuupäev"].tolist()
-payment_amounts = expense_df["Summa"].tolist()
+expense_unique_id = expense_df["Arhiveerimistunnus"].tolist()
+expense_descriptions = expense_df["Selgitus"].tolist()
+
+expense_descriptions_cleaned = [re.sub(r"\d{6}\*+\d+|\b\d{2}\.\d{2}\.\d{2,4}\b", " ", e.replace("'", "")) for e in expense_descriptions]# Clean descriptions for AI categorization
+expense_dates = expense_df["Kuupäev"].tolist()
+expense_amounts = expense_df["Summa"].tolist()
+
 
 income_descriptions = income_df["Selgitus"].tolist()
 income_dates = income_df["Kuupäev"].tolist()
 income_unique_id = income_df["Arhiveerimistunnus"].tolist()
 income_amounts = income_df["Summa"].tolist()
 
-expenseData = [{"description": re.sub(r"\d{6}\*+\d+", " ", e.replace("'", "")), "amount": a.replace(",", "."), "date": d, "unique_id": int(i)} for e, a, d, i in zip(payment_descriptions, payment_amounts, payment_dates, payment_unique_id)]
+expenseData = [{"description": re.sub(r"\d{6}\*+\d+", " ", e.replace("'", "")), "amount": a.replace(",", "."), "date": d, "unique_id": int(i)} for e, a, d, i in zip(expense_descriptions, expense_amounts, expense_dates, expense_unique_id)]
 incomeData = [{"description": e.replace("'", ""), "amount": a.replace(",", "."), "date": d, "unique_id": str(i)} for e, a, d, i in zip(income_descriptions, income_amounts, income_dates, income_unique_id)]
 
-AI_categorized_payments = categorize_payments(payment_descriptions_cleaned)
+def chunked(iterable, size):
+    for i in range(0, len(iterable), size):
+        yield iterable[i:i + size]
 
-print(json.dumps(reorganize_payment_data(expenseData, incomeData, AI_categorized_payments)))
+# 30 Expenses at a time
+def categorize_in_chunks(expense_descriptions, chunk_size=20):
+    categorized = {}
+    idx_offset = 0
+    processed = 0
+
+    for chunk in chunked(expense_descriptions, chunk_size):
+        chunk_result = categorize_expenses(chunk)
+        processed += len(chunk)
+        print(processed, file=sys.stderr, flush=True) # Print progress to stderr for frontend to read
+        for n, e in chunk_result.items():
+            categorized[str(int(n) + idx_offset)] = e
+        idx_offset += len(chunk)
+
+    return categorized
+
+# Usage
+AI_categorized_expenses = categorize_in_chunks(expense_descriptions_cleaned, chunk_size=30)
+
+print(json.dumps(reorganize_payment_data(expenseData, incomeData, AI_categorized_expenses)))
+
