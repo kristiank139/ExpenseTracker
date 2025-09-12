@@ -1,6 +1,7 @@
 .env
 .DS_Store
 statement.csv
+statement-3.csv
 venv
 notes.txt
 

@@ -1,20 +1,20 @@
 import './App.css';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { DndContext, DragOverlay, pointerWithin } from '@dnd-kit/core';
 import BeatLoader from "react-spinners/BeatLoader";
 /*import CustomPieChart from './components/PieChart'; unused */
 import CustomBarChart from './components/BarChart';
+import ProgressBar from './components/ProgressBar';
 
 import { Draggable } from './components/Draggable';
 import { Droppable } from './components/Droppable';
 import { DragPreview } from './components/DragPreview';
 
-
 function App() {
   const [activeDisplayMenuId, setActiveDisplayMenuId] = useState("expense-menu")
   const [activeId, setActiveId] = useState(null);
   const [activeNodeStyles, setActiveNodeStyles] = useState(null);
-  const [file, setFile] = useState(null);
+  const [data, setData] = useState(null);
   const [loading, setLoading] = useState(null);
   // This is where I can add/remove categories
   const [categoryElements, setCategoryElements] = useState({
@@ -24,10 +24,30 @@ function App() {
     "items": {"amount": 0, "payments": []},
     "other": {"amount": 0, "payments": []}
   });
-  const [incomeData, setIncomeData] = useState(null);
+  const [transactionData, setTransactionData] = useState({
+    "payment_data": [],
+    "income_data": []
+  });
+
+  function loadDatabasePayments() {
+    window.paymentAPI.getPayments().then((payments) => {
+      let expenses = payments.filter(p => p.type === "expense");
+      let income = payments.filter(p => p.type === "income");
+      if (expenses.length === 0 && income.length === 0) {
+        return;
+      }
+      setTransactionData(() => ({
+        "payment_data": expenses,
+        "income_data": income
+      }));
+      setCategoryElements(transformDataToCategoryElements(expenses));
+      setData(true);
+    });
+  }
 
   function LoadingSpinner() {
     return <div>
+              <ProgressBar />
               <BeatLoader size={25} color="#2A9D8F" />
            </div>
   }
@@ -35,25 +55,55 @@ function App() {
   const handleOpenFile = async () => {
     const filePath = await window.electronAPI.openFile();
     if (!filePath) return;
-    setLoading(true)
 
-    const jsonData = await window.electronAPI.getJsonData(filePath);
-    console.log(jsonData)
+    setData(null);
+    setLoading(true);
 
-    setCategoryElements(jsonData.payment_data);
-    setIncomeData(jsonData.income_data)
-    setFile(filePath);
-    setLoading(null)
+    const uniqueExpenseIds = transactionData.payment_data.map(p => p.unique_id) // maybe could remove json
+    const uniqueIncomeIds = transactionData.income_data.map(p => p.unique_id)
+    const uniqueIds = JSON.stringify([...new Set([...uniqueExpenseIds, ...uniqueIncomeIds])])
+    const jsonData = await window.electronAPI.getJsonData(filePath, uniqueIds);
+
+    // Check for new data to add to database
+    jsonData.payment_data.forEach(payment => {
+      if (payment.category) {
+        window.paymentAPI.addPayment(payment, "expense");
+      }
+    });
+
+    jsonData.income_data.forEach(payment => {
+      window.paymentAPI.addPayment(payment, "income");
+    });
+
+    setData(false);
+    loadDatabasePayments();
+    setLoading(null);
+
   };
 
-  function getExpensesTotal(jsonData) {
-    return Object.values(jsonData).reduce((sum, category) => sum + category.amount, 0).toFixed(2);
+  function transformDataToCategoryElements(data) {
+    const newCategoryElements = {
+      "groceries": {"amount": 0, "payments": []},
+      "transport": {"amount": 0, "payments": []},
+      "eating out": {"amount": 0, "payments": []},
+      "items": {"amount": 0, "payments": []},
+      "other": {"amount": 0, "payments": []}
+    };
+
+    data.forEach(payment => {
+      newCategoryElements[payment.category].payments.push({ [payment.description]: payment.amount });
+      newCategoryElements[payment.category].amount += parseFloat(payment.amount);
+    })
+
+    return newCategoryElements
+  };
+
+  function getExpensesTotal(expenseData) {
+    return expenseData.reduce((sum, item) => sum + parseFloat(item.amount), 0).toFixed(2);
   }
 
   function getIncomeTotal(incomeData) {
-    let sum = incomeData.flat().reduce((acc, item) => 
-        acc + parseFloat(item.amount.replace(",", ".")), 0);
-    return sum
+    return incomeData.reduce((sum, item) => sum + parseFloat(item.amount), 0).toFixed(2);
   }
 
   function safeSubtract(a, b, tolerance = 1e-10) { // To avoid getting -0 as a result
@@ -162,19 +212,24 @@ function App() {
     setActiveDisplayMenuId(newMenuId)
   }
 
-  if (!file) {
+  if (!data) {
+    loadDatabasePayments() // Checks database for existing payments, if none, shows starting screen
+    
     return (
-      <div className="file-selection">
+      <div className="starting-screen">
         {loading ? <LoadingSpinner /> : <>
+        <h1>Welcome to your Expense Tracker</h1>
         <h1>Select CSV File To Get Started</h1>
-        <button onClick={handleOpenFile}>Choose File</button></>}
+        <button onClick={handleOpenFile}>Choose File</button></>
+        }
+        {data === false && <p style={{color: 'red'}}>No data found.</p>}
       </div>
     )
   }
-
+  
   return (
       <div className="App">
-        <h1 className="title">Total expenses: {getExpensesTotal(categoryElements)}€, total income: {getIncomeTotal([incomeData])}€</h1>
+        <h1 className="title">Total expenses: {getExpensesTotal(transactionData.payment_data)}€, total income: {getIncomeTotal(transactionData.income_data)}€</h1>
         <button onClick={() => changeDisplayMenu("expense-menu")}>Expenses</button>
         <button onClick={() => changeDisplayMenu("income-menu")}>Income</button>
         <button onClick={() => changeDisplayMenu("chart-menu")}>Chart</button>
@@ -220,8 +275,9 @@ function App() {
         {activeDisplayMenuId === "income-menu" && (
           <div className='income-list-container'>
             <ul>
-            {incomeData.map(income => {
-              return (<li>{income.explanation} - {income.amount}</li>)
+            {transactionData.income_data.length === 0 && <p>No income data found.</p>}
+            {transactionData.income_data.map((income, index) => {
+              return (<li key={`${income.type}-${index}`}>{income.description} - {income.amount} €</li>)
             })}
             </ul>
           </div>
@@ -236,8 +292,9 @@ function App() {
         )}
         {activeDisplayMenuId === "fileSelect-menu" && (
           <div>
-            <h1>Select File</h1>
-            <button onClick={handleOpenFile}>Choose File</button>
+            {loading ? <LoadingSpinner /> : <>
+            <h1>Select CSV File To Get Started</h1>
+            <button onClick={handleOpenFile}>Choose File</button></>}
           </div>
         )}
       </div>
