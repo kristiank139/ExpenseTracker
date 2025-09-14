@@ -10,26 +10,29 @@ export default class CustomBarChart extends PureComponent {
   console.log(chartData)
 
     const categoryColors = {
-      Groceries: '#2A9D8F',
-      Transport: '#E76F51',
-      "Eating out": '#F4A261',
-      Items: '#72717a',
-      Other: '#E9C46A',
+      "groceries": '#2A9D8F',
+      "transport": '#E76F51',
+      "eating out": '#F4A261',
+      "items": '#72717a',
+      "subscriptions": '#264653',
+      "other": '#E9C46A',
     };
 
     return (
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={chartData}>
-          <XAxis dataKey="name" />
-          <Bar dataKey="value">
-            {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={categoryColors[entry.name] || "#ccc"} />
-            ))}
-            <LabelList dataKey="value" position="top" />
-          </Bar>
+      <div align="center">
+        <ResponsiveContainer width="85%" height={300}>
+          <BarChart data={chartData}>
+            <XAxis dataKey="name" />
+            <Bar dataKey="value" barSize={90}>
+              {chartData.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={categoryColors[entry.name] || "#ccc"} />
+              ))}
+              <LabelList dataKey="value" position="top" />
+            </Bar>
 
-        </BarChart>
-      </ResponsiveContainer>
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     );
   }
 }

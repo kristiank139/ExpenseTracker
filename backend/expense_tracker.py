@@ -25,7 +25,7 @@ def categorize_expenses(payment_data):
         input = [
             {
                 "role": "developer",
-                "content": "You will be given a JSON string containing payment descriptions as keys and the amount that was spent as their values. You should categorize these purchases based on the payment description into five different groups: 'Groceries', 'Eating out' (fast food chains, restaurants), 'Items' (like electronics, books, clothes), 'Transport', 'Other' (if you're unsure or other categories don't apply). Return a JSON string containing the n-th purchase as keys as such: '{0: category, 1: category, 2: etc...}'. There must be as many keys as there is payments. Categories are lowercase, only output raw JSON.",
+                "content": "You will be given a JSON string containing payment descriptions as keys and the amount that was spent as their values. You should categorize these purchases based on the payment description into six different groups: 'Groceries', 'Eating out' (fast food chains, restaurants), 'Items' (like electronics, books, clothes), 'Transport', 'Subscriptions', 'Other' (if you're unsure or other categories don't apply). Return a JSON string containing the n-th purchase as keys as such: '{0: category, 1: category, 2: etc...}'. There must be as many keys as there is payments. Categories are lowercase, only output raw JSON.",
             },
             {
                 "role": "user",
@@ -56,14 +56,14 @@ def reorganize_payment_data(expenseData, incomeData, categorized_payments):
     }
     return expense_income_data
 
-payment_categories = ["Groceries", "Transport", "Eating out", "Items", "Other"]
+payment_categories = ["Groceries", "Transport", "Eating out", "Items", "Subscriptions", "Other"]
 df = pd.read_csv(csv_path, delimiter=";")
 
 client = OpenAI()
 
 unnecessary_row_tags = ["Algsaldo", "Käive", "lõppsaldo"]
 
-row_amount = 80
+row_amount = 40
 
 payments_df = df[~df["Selgitus"].isin(unnecessary_row_tags)] # Remove unnecessary rows
 payments_df = payments_df.head(row_amount)

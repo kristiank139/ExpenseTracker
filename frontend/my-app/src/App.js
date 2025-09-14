@@ -9,6 +9,7 @@ import ProgressBar from './components/ProgressBar';
 import { Draggable } from './components/Draggable';
 import { Droppable } from './components/Droppable';
 import { DragPreview } from './components/DragPreview';
+import { set } from 'date-fns/set';
 
 function App() {
   const [activeDisplayMenuId, setActiveDisplayMenuId] = useState("expense-menu")
@@ -22,15 +23,18 @@ function App() {
     "transport": {"amount": 0, "payments": []},
     "eating out": {"amount": 0, "payments": []},
     "items": {"amount": 0, "payments": []},
+    "subscriptions": {"amount": 0, "payments": []},
     "other": {"amount": 0, "payments": []}
   });
   const [transactionData, setTransactionData] = useState({
     "payment_data": [],
     "income_data": []
   });
+  const [calendar, setCalendar] = useState([]);
 
   function loadDatabasePayments() {
-    window.paymentAPI.getPayments().then((payments) => {
+    window.paymentAPI.getPayments().then((vals) => {      
+      const [payments, calendar] = vals;
       let expenses = payments.filter(p => p.type === "expense");
       let income = payments.filter(p => p.type === "income");
       if (expenses.length === 0 && income.length === 0) {
@@ -41,6 +45,7 @@ function App() {
         "income_data": income
       }));
       setCategoryElements(transformDataToCategoryElements(expenses));
+      setCalendar(calendar);
       setData(true);
     });
   }
@@ -87,11 +92,12 @@ function App() {
       "transport": {"amount": 0, "payments": []},
       "eating out": {"amount": 0, "payments": []},
       "items": {"amount": 0, "payments": []},
+      "subscriptions": {"amount": 0, "payments": []},
       "other": {"amount": 0, "payments": []}
     };
 
     data.forEach(payment => {
-      newCategoryElements[payment.category].payments.push({ [payment.description]: payment.amount });
+      newCategoryElements[payment.category].payments.push({ [payment.description]: [payment.amount, payment.date] });
       newCategoryElements[payment.category].amount += parseFloat(payment.amount);
     })
 
@@ -231,12 +237,31 @@ function App() {
       <div className="App">
         <h1 className="title">Total expenses: {getExpensesTotal(transactionData.payment_data)}€, total income: {getIncomeTotal(transactionData.income_data)}€</h1>
         <button onClick={() => changeDisplayMenu("expense-menu")}>Expenses</button>
-        <button onClick={() => changeDisplayMenu("income-menu")}>Income</button>
+        <button onClick={() => changeDisplayMenu("income-menu")}>Income</button>  
         <button onClick={() => changeDisplayMenu("chart-menu")}>Chart</button>
         <button onClick={() => changeDisplayMenu("fileSelect-menu")}>File Select</button>
+        <button onClick={() => changeDisplayMenu("calendar-menu")}>Calendar</button>
+
+          {activeDisplayMenuId === "calendar-menu" && (
+            <div>
+              <h2>Calendar view coming soon!</h2>  
+              {console.log(calendar)}
+              {Object.entries(calendar).map(([yearIndex, yearPayments]) => (
+                <div key={yearIndex} className="year-container">
+                  {console.log(yearPayments)}
+                  <h3>{yearPayments[0].date.split('-')[0]}</h3>
+                  <ul className="payment-list-container">
+                    {yearPayments.map((payment, index) => (
+                      <li key={`${payment.unique_id}-${index}`} className="payment-item">{payment.date} {payment.description} - <span className={payment.type === "expense" ? "red-text" : "green-text"}>{payment.amount} €</span></li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
 
           {activeDisplayMenuId === "expense-menu" && (
-          <div className='lists-container'>
+          <div className='expense-lists-container'>
             <DndContext
               onDragStart={handleDragStart}
               onDragEnd={handleDragEnd}
@@ -245,16 +270,15 @@ function App() {
               {Object.entries(categoryElements).map(([category, data]) => (
                 <Droppable id={category} key={category}>
                   <div>
-                    <div className='list-title'>{category} - {data.amount.toFixed(2) + "€"}</div>
-                      <ul className='list-payments'>
+                    <div className='expense-list-title'>{category} - <span className='red-text'>{data.amount.toFixed(2) + "€"}</span></div>
+                      <ul className='payment-list-container'>
                         {data.payments.map((payment, index) => {
-                          const [[description, amount]] = Object.entries(payment);
+                          const [[description, [amount, date]]] = Object.entries(payment);
                           return (
                               <Draggable 
                                 id={`${category}-${index}`}
                                 key={`${category}-${index}`}
-                              > 
-                                {description} - {amount} €
+                              > {date} {description} - <span className="red-text">{amount} €</span>
                               </Draggable>
                           );
                         })}
@@ -273,18 +297,19 @@ function App() {
           </div>
         )}
         {activeDisplayMenuId === "income-menu" && (
-          <div className='income-list-container'>
-            <ul>
-            {transactionData.income_data.length === 0 && <p>No income data found.</p>}
-            {transactionData.income_data.map((income, index) => {
-              return (<li key={`${income.type}-${index}`}>{income.description} - {income.amount} €</li>)
-            })}
-            </ul>
+          <div>
+            {transactionData.income_data.length === 0 ? (<p>No income data found.</p>) : (
+              <ul className="income-list-container payment-list-container">
+                {transactionData.income_data.map((income, index) => {
+                  return (<li className="income-item" key={`${income.type}-${index}`}>{income.description} - <span className="green-text">{income.amount} €</span></li>)
+                })}
+              </ul>
+            )}
           </div>
         )}
         {activeDisplayMenuId === "chart-menu" && (
         <div>
-          <h2>Chart:</h2>
+          <h2>Expenses chart:</h2>
             <div style={{width: '100%', height: 400}}>
               <CustomBarChart categoryElements={categoryElements}/>
             </div>

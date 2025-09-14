@@ -4,7 +4,7 @@ export function Droppable({id, children}) {
   const { setNodeRef } = useDroppable({ id });
   
   return (
-    <div ref={setNodeRef} className='list-container'>
+    <div ref={setNodeRef} className='expense-list-container'>
       {children}
     </div>
   );

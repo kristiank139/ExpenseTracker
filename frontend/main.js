@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, dialog } = require('electron')
+const { format, eachYearOfInterval } = require("date-fns"); 
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -40,13 +41,35 @@ const createWindow = () => {
   win.webContents.openDevTools()
 }
 
+function formatDate(date) {
+  const [day, month, year] = date.split('.');
+  return format(new Date(year, month - 1, day), 'yyyy-MM-dd');
+}
+
+function calendarObjectConstructor(payments) {
+  calendar = [];
+  let i = 0;
+  let j = 0;
+  let currentYear = payments[0].date.split('-')[0];
+  while (i < payments.length - 1) {
+    while (payments[i].date.split('-')[0] === currentYear) {
+      if (!calendar[j]) calendar[j] = [];
+      calendar[j].push(payments[i]);
+      i++;
+    }
+    currentYear = payments[i].date.split('-')[0];
+    j++;
+  }
+  return calendar;
+}
+
 function addPayment(payment, type) {
   const stmt = db.prepare(`
     INSERT INTO payments (date, unique_id, amount, description, category, type)
     VALUES (?, ?, ?, ?, ?, ?)
     `);
 
-  stmt.run(payment.date, payment.unique_id, payment.amount, payment.description, payment.category, type);
+  stmt.run(formatDate(payment.date), payment.unique_id, payment.amount, payment.description, payment.category, type);
 }
 
 function getPayments() {
@@ -57,7 +80,13 @@ function getPayments() {
     .join(', ');
 
   const rows = db.prepare(`SELECT ${columns} FROM payments ORDER BY date DESC`).all();
-  return rows;
+  if (rows.length === 0) return [[], []];
+
+  // Map all years
+
+  calendar = calendarObjectConstructor(rows);
+
+  return [rows, calendar];
 }
 
 ipcMain.handle('dialog:openFile', async () => {
